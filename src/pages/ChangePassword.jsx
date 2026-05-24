@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, KeyRound } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -11,11 +11,11 @@ export default function ChangePassword() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // If mustChangePassword is false, user shouldn't be here
-  if (currentUser && !currentUser.mustChangePassword) {
-    navigate('/dashboard', { replace: true })
-    return null
-  }
+  useEffect(() => {
+    if (currentUser && !currentUser.mustChangePassword) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [currentUser])
 
   async function handleSubmit(e) {
     e.preventDefault()

@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Activity } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
-  const { login } = useAuth()
+  const { login, currentUser } = useAuth()
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -15,16 +15,31 @@ export default function Login() {
 
   const wasMigrated = localStorage.getItem('hht_migrated') === 'true'
 
+  // Redirect as soon as currentUser is set in context — avoids timing issues
+  // where navigate() fires before React flushes the setCurrentUser state update
+  useEffect(() => {
+    if (!currentUser) return
+    if (currentUser.mustChangePassword) {
+      navigate('/change-password', { replace: true })
+    } else {
+      navigate(currentUser.role === 'admin' ? '/admin' : '/dashboard', { replace: true })
+    }
+  }, [currentUser])
+
   async function handleSubmit(e) {
     e.preventDefault()
     if (!username.trim() || !password) { setError('Please enter your username and password.'); return }
     setError('')
     setLoading(true)
-    const result = await login(username.trim(), password)
-    setLoading(false)
-    if (result.error) { setError(result.error); return }
-    if (result.mustChangePassword) { navigate('/change-password', { replace: true }); return }
-    navigate(result.user.role === 'admin' ? '/admin' : '/dashboard', { replace: true })
+    try {
+      const result = await login(username.trim(), password)
+      if (result.error) { setError(result.error) }
+      // Successful login: navigation handled by the useEffect above
+    } catch {
+      setError('An unexpected error occurred. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
