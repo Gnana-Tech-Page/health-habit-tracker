@@ -5,7 +5,7 @@ import Sidebar from './components/layout/Sidebar'
 import Header from './components/layout/Header'
 import BottomNav from './components/layout/BottomNav'
 import Login from './pages/Login'
-import Register from './pages/Register'
+import ChangePassword from './pages/ChangePassword'
 import Dashboard from './pages/Dashboard'
 import History from './pages/History'
 import Profile from './pages/Profile'
@@ -13,11 +13,19 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import UserDetail from './pages/admin/UserDetail'
 import { HabitProvider } from './context/HabitContext'
 
+function Spinner() {
+  return (
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+}
+
 function RequireAuth({ adminOnly = false }) {
-  const { user, loading } = useAuth()
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"/></div>
-  if (!user) return <Navigate to="/login" replace />
-  if (adminOnly && user.role !== 'admin') return <Navigate to="/dashboard" replace />
+  const { currentUser, loading } = useAuth()
+  if (loading) return <Spinner />
+  if (!currentUser) return <Navigate to="/login" replace />
+  if (adminOnly && currentUser.role !== 'admin') return <Navigate to="/dashboard" replace />
   return <Outlet />
 }
 
@@ -25,7 +33,7 @@ function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   return (
     <HabitProvider>
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <div className="flex h-screen bg-slate-900 overflow-hidden">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <Header onMenuToggle={() => setSidebarOpen(s => !s)} />
@@ -43,8 +51,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
       <Route element={<RequireAuth />}>
+        <Route path="/change-password" element={<ChangePassword />} />
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/history" element={<History />} />

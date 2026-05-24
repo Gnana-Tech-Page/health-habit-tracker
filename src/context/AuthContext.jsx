@@ -1,90 +1,122 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { getUsers, saveUsers, getCurrentUserId, setCurrentUserId } from '../utils/storage'
+import { verifyPassword, hashPassword } from '../utils/crypto'
+import {
+  getUsers, getUserByUsername, getUserById, upsertUser, removeUser,
+  getSession, saveSession, clearSession,
+  getLockout, saveLockout, clearLockout,
+} from '../utils/storage'
+import { deriveAvatarColor } from '../utils/init'
 
 const AuthContext = createContext(null)
 
+const MAX_ATTEMPTS = 5
+const LOCKOUT_MS   = 15 * 60 * 1000
+
 function uid() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36)
+  return crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2) + Date.now().toString(36)
 }
 
-// btoa encode — lightweight, not crypto-secure (demo app)
-function encodePassword(pw) { return btoa(pw) }
-
-const AVATAR_COLORS = ['#1D9E75','#6366F1','#F59E0B','#E24B4A','#0EA5E9','#8B5CF6','#EC4899']
-
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState(null)
+  const [loading, setLoading]         = useState(true)
 
   useEffect(() => {
-    const id = getCurrentUserId()
-    if (id) {
-      const users = getUsers()
-      const found = users.find(u => u.id === id)
-      if (found) setUser(found)
+    const session = getSession()
+    if (session) {
+      const u = getUserById(session.userId)
+      if (u) setCurrentUser(u)
     }
     setLoading(false)
   }, [])
 
-  function login(email, password, remember = false) {
-    const users = getUsers()
-    const found = users.find(u => u.email.toLowerCase() === email.toLowerCase())
-    if (!found) return { error: 'No account found with that email.' }
-    if (found.password !== encodePassword(password)) return { error: 'Incorrect password.' }
-    setUser(found)
-    if (remember) setCurrentUserId(found.id)
-    else setCurrentUserId(found.id)
-    return { user: found }
+  async function login(username, password) {
+    const uname = username.toLowerCase().trim()
+
+    const lock = getLockout(uname)
+    if (lock?.attempts >= MAX_ATTEMPTS) {
+      const age = Date.now() - lock.lockedAt
+      if (age < LOCKOUT_MS) {
+        const mins = Math.ceil((LOCKOUT_MS - age) / 60000)
+        return { error: `Account locked. Try again in ${mins} minute${mins !== 1 ? 's' : ''}.` }
+      }
+      clearLockout(uname)
+    }
+
+    const user = getUserByUsername(uname)
+    if (!user) return bump(uname, { error: 'Invalid username or password.' })
+
+    const valid = await verifyPassword(password, user.passwordHash)
+    if (!valid) return bump(uname, { error: 'Invalid username or password.' })
+
+    clearLockout(uname)
+    const updated = { ...user, lastLogin: new Date().toISOString(), loginCount: (user.loginCount || 0) + 1 }
+    upsertUser(updated)
+    saveSession({ userId: updated.id, username: updated.username, role: updated.role, loginTime: Date.now() })
+    setCurrentUser(updated)
+
+    if (updated.mustChangePassword) return { mustChangePassword: true, user: updated }
+    return { success: true, user: updated }
+  }
+
+  function bump(uname, errorResult) {
+    const cur = getLockout(uname) || { attempts: 0, lockedAt: Date.now() }
+    const attempts = cur.attempts + 1
+    saveLockout(uname, { attempts, lockedAt: attempts >= MAX_ATTEMPTS ? Date.now() : cur.lockedAt })
+    if (attempts >= MAX_ATTEMPTS)
+      return { error: `Account locked after ${MAX_ATTEMPTS} failed attempts. Try again in 15 minutes.` }
+    const left = MAX_ATTEMPTS - attempts
+    return { error: `${errorResult.error} ${left} attempt${left !== 1 ? 's' : ''} remaining.` }
   }
 
   function logout() {
-    setUser(null)
-    setCurrentUserId(null)
+    clearSession()
+    setCurrentUser(null)
   }
 
-  function register(name, email, password) {
-    const users = getUsers()
-    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
-      return { error: 'An account with this email already exists.' }
-    }
-    const color = AVATAR_COLORS[users.length % AVATAR_COLORS.length]
+  async function createUser({ username, displayName, password, role = 'user' }) {
+    const uname = username.toLowerCase().trim()
+    if (getUserByUsername(uname)) return { error: 'Username already exists.' }
+    const passwordHash = await hashPassword(password)
     const newUser = {
-      id: uid(),
-      name,
-      email,
-      password: encodePassword(password),
-      role: 'user',
-      createdAt: new Date().toISOString(),
-      avatar: name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0,2),
-      avatarColor: color,
+      id: uid(), username: uname, displayName: displayName.trim(),
+      passwordHash, mustChangePassword: false, role,
+      createdAt: new Date().toISOString(), lastLogin: null, loginCount: 0,
+      avatarColor: deriveAvatarColor(uname),
     }
-    saveUsers([...users, newUser])
-    setUser(newUser)
-    setCurrentUserId(newUser.id)
-    return { user: newUser }
+    upsertUser(newUser)
+    return { success: true, user: newUser }
   }
 
-  function updateUser(updates) {
-    const users = getUsers()
-    const idx = users.findIndex(u => u.id === user.id)
-    if (idx < 0) return
-    const updated = { ...users[idx], ...updates }
-    users[idx] = updated
-    saveUsers(users)
-    setUser(updated)
+  function updateUser(userId, changes) {
+    const user = getUserById(userId)
+    if (!user) return null
+    const updated = { ...user, ...changes }
+    upsertUser(updated)
+    if (currentUser?.id === userId) setCurrentUser(updated)
     return updated
   }
 
-  function promoteUser(userId) {
-    const users = getUsers()
-    const idx = users.findIndex(u => u.id === userId)
-    if (idx < 0) return
-    users[idx].role = users[idx].role === 'admin' ? 'user' : 'admin'
-    saveUsers(users)
+  async function changePassword(userId, newPassword) {
+    const hash = await hashPassword(newPassword)
+    return updateUser(userId, { passwordHash: hash, mustChangePassword: false })
+  }
+
+  function deleteUser(userId) {
+    removeUser(userId)
+  }
+
+  function getAllUsers() {
+    return getUsers()
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, register, updateUser, promoteUser }}>
+    <AuthContext.Provider value={{
+      currentUser, loading,
+      login, logout,
+      createUser, updateUser, deleteUser, getAllUsers, changePassword,
+    }}>
       {children}
     </AuthContext.Provider>
   )

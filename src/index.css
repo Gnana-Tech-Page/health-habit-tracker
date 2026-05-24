@@ -3,24 +3,45 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    font-family: 'DM Sans', sans-serif;
-    @apply text-gray-800;
+  html, body, #root {
+    @apply bg-slate-900 text-slate-100;
+    min-height: 100vh;
   }
   h1, h2, h3, h4 {
     font-family: 'Bricolage Grotesque', sans-serif;
   }
+  * {
+    @apply border-slate-700;
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-slate-800; }
+  ::-webkit-scrollbar-thumb { @apply bg-slate-600 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-slate-500; }
 }
 
 @layer utilities {
-  .animate-slide-in {
-    animation: slideIn 0.25s ease-out;
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .input-dark {
+    @apply bg-slate-700 border border-slate-600 text-slate-100 placeholder-slate-400
+           rounded-xl px-4 py-3 text-sm w-full
+           focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition;
   }
-  @keyframes slideIn {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
+  .btn-primary {
+    @apply bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-white font-semibold
+           px-4 py-2.5 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed;
   }
-  .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+  .btn-secondary {
+    @apply bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium
+           px-4 py-2.5 rounded-xl transition-colors;
+  }
+  .btn-danger {
+    @apply bg-red-500/20 hover:bg-red-500/30 text-red-400
+           px-4 py-2.5 rounded-xl transition-colors;
+  }
+  .card-dark {
+    @apply bg-slate-800 border border-slate-700 rounded-2xl;
+  }
+  .section-label {
+    @apply uppercase tracking-widest text-xs font-semibold text-slate-500;
   }
 }

@@ -20,18 +20,16 @@ export default function UserDetail() {
   const entries = useMemo(() => getHabitsForUser(userId), [userId])
 
   if (!user) return (
-    <div className="p-8 text-center text-gray-400">
+    <div className="p-8 text-center text-slate-400">
       <p>User not found.</p>
-      <Link to="/admin" className="text-brand-500 mt-2 inline-block">← Back to admin</Link>
+      <Link to="/admin" className="text-brand-500 mt-2 inline-block hover:text-brand-400">← Back to admin</Link>
     </div>
   )
 
   const { current: streak, best } = computeStreak(entries)
   const sleepRate = sleepOnTimeRate(entries)
 
-  const weekStart = startOfMonth(month)
-  const weekEnd = endOfMonth(month)
-  const days = eachDayOfInterval({ start: weekStart, end: weekEnd })
+  const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) })
   const dateKeys = days.map(d => format(d, 'yyyy-MM-dd'))
   const monthEntries = entries.filter(e => dateKeys.includes(e.date))
 
@@ -41,7 +39,7 @@ export default function UserDetail() {
   const lineData = days.map(d => {
     const dk = format(d, 'yyyy-MM-dd')
     const e = entries.find(x => x.date === dk)
-    return { day: format(d,'d'), pct: e ? computeCompletion(e) : null }
+    return { day: format(d, 'd'), pct: e ? computeCompletion(e) : null }
   })
 
   const selectedEntry = entries.find(e => e.date === selectedDate)
@@ -49,21 +47,21 @@ export default function UserDetail() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
-        <Link to="/admin" className="text-gray-400 hover:text-gray-600 p-1">
+        <Link to="/admin" className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-700 transition-colors">
           <ArrowLeft size={20} />
         </Link>
         <Avatar user={user} size="md" />
         <div>
-          <h1 className="font-heading font-bold text-xl text-navy">{user.name}</h1>
-          <p className="text-sm text-gray-400">{user.email}</p>
+          <h1 className="font-heading font-bold text-xl text-white">{user.displayName}</h1>
+          <p className="text-sm text-slate-400">@{user.username}</p>
         </div>
         <div className="ml-auto flex gap-2">
-          <button onClick={() => downloadWeeklyReport(user.name, entries)}
-            className="flex items-center gap-2 bg-white border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 px-3 py-2 rounded-xl">
+          <button onClick={() => downloadWeeklyReport(user.displayName, entries)}
+            className="btn-secondary flex items-center gap-2 text-sm">
             <Download size={14}/> Weekly
           </button>
-          <button onClick={() => downloadMonthlyReport(user.name, entries, month)}
-            className="flex items-center gap-2 bg-brand-500 hover:bg-brand-700 text-white text-sm font-medium px-3 py-2 rounded-xl">
+          <button onClick={() => downloadMonthlyReport(user.displayName, entries, month)}
+            className="btn-primary flex items-center gap-2 text-sm">
             <Download size={14}/> Monthly
           </button>
         </div>
@@ -78,56 +76,69 @@ export default function UserDetail() {
         ].map(({ label, val, ring }) => (
           <Card key={label} className="p-4 flex flex-col items-center gap-1">
             {ring !== undefined ? <CompletionRing pct={ring} size={56} stroke={6}/> : null}
-            <p className="text-lg font-bold text-navy font-heading">{val}</p>
-            <p className="text-xs text-gray-400 uppercase tracking-widest text-center">{label}</p>
+            <p className="text-lg font-bold text-white font-heading">{val}</p>
+            <p className="section-label text-center">{label}</p>
           </Card>
         ))}
       </div>
 
       <div className="flex items-center gap-3">
-        <button onClick={() => setMonth(m => subMonths(m,1))} className="p-2 rounded-xl hover:bg-gray-100">
+        <button onClick={() => setMonth(m => subMonths(m, 1))}
+          className="p-2 rounded-xl hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
           <ChevronLeft size={18}/>
         </button>
-        <span className="font-semibold text-navy">{format(month,'MMMM yyyy')}</span>
-        <button onClick={() => setMonth(m => addMonths(m,1))} disabled={month >= startOfMonth(new Date())}
-          className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-30">
+        <span className="font-semibold text-white min-w-[120px] text-center">{format(month, 'MMMM yyyy')}</span>
+        <button onClick={() => setMonth(m => addMonths(m, 1))} disabled={month >= startOfMonth(new Date())}
+          className="p-2 rounded-xl hover:bg-slate-700 text-slate-400 hover:text-white disabled:opacity-30 transition-colors">
           <ChevronRight size={18}/>
         </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 p-5">
-          <p className="uppercase tracking-widest text-xs font-semibold text-gray-400 mb-4">Calendar</p>
+          <p className="section-label mb-4">Calendar</p>
           <CalendarHeatmap entries={entries} month={month} onDayClick={setSelectedDate} selectedDate={selectedDate} />
         </Card>
         <Card className="p-5 overflow-y-auto max-h-80">
-          <p className="uppercase tracking-widest text-xs font-semibold text-gray-400 mb-3">
-            {selectedDate ? format(new Date(selectedDate+'T00:00'),'MMM d') : 'Select a day'}
+          <p className="section-label mb-3">
+            {selectedDate ? format(new Date(selectedDate + 'T00:00'), 'MMM d') : 'Select a day'}
           </p>
           {selectedEntry ? (
-            <div className="space-y-1.5">
-              {HABIT_FIELDS.filter(f=>f.key!=='sleepOnTime').map(f => {
+            <div className="space-y-1">
+              {HABIT_FIELDS.filter(f => f.key !== 'sleepOnTime').map(f => {
                 const val = selectedEntry[f.key]
-                const display = f.type==='bool' ? (val?'✓':'✗') : `${val||0}${f.unit||''}`
+                const display = f.type === 'bool' ? (val ? '✓' : '✗') : `${val || 0}${f.unit || ''}`
                 return (
-                  <div key={f.key} className="flex justify-between text-sm py-1 border-b border-gray-50">
-                    <span className="text-gray-600 text-xs">{f.label}</span>
-                    <span className={`font-medium text-xs ${f.type==='bool'?(val?'text-brand-500':'text-danger-500'):'text-navy'}`}>{display}</span>
+                  <div key={f.key} className="flex justify-between text-xs py-1 border-b border-slate-700/50">
+                    <span className="text-slate-400">{f.label}</span>
+                    <span className={`font-medium ${f.type === 'bool' ? (val ? 'text-brand-500' : 'text-red-400') : 'text-slate-200'}`}>
+                      {display}
+                    </span>
                   </div>
                 )
               })}
+              {selectedEntry.sleepTime && (
+                <div className="flex justify-between text-xs py-1">
+                  <span className="text-slate-400">Sleep</span>
+                  <span className={`font-medium ${selectedEntry.sleepOnTime ? 'text-brand-500' : 'text-red-400'}`}>
+                    {selectedEntry.sleepTime} {selectedEntry.sleepOnTime ? '✓' : `+${selectedEntry.minsLate}m`}
+                  </span>
+                </div>
+              )}
             </div>
-          ) : <p className="text-sm text-gray-400">No data</p>}
+          ) : (
+            <p className="text-sm text-slate-500 text-center py-4">No data for this day</p>
+          )}
         </Card>
       </div>
 
       <Card className="p-5">
-        <p className="uppercase tracking-widest text-xs font-semibold text-gray-400 mb-3">Daily Completion Trend</p>
+        <p className="section-label mb-3">Daily Completion Trend</p>
         <ResponsiveContainer width="100%" height={160}>
           <LineChart data={lineData}>
-            <XAxis dataKey="day" tick={{fontSize:10}} axisLine={false} tickLine={false} interval={4}/>
+            <XAxis dataKey="day" tick={{fontSize:10,fill:'#64748b'}} axisLine={false} tickLine={false} interval={4}/>
             <YAxis hide domain={[0,100]}/>
-            <Tooltip formatter={(v)=>[`${v}%`,'Completion']} contentStyle={{fontSize:12,borderRadius:8}}/>
+            <Tooltip contentStyle={{background:'#1e293b',border:'1px solid #334155',borderRadius:8,fontSize:12}}/>
             <ReferenceLine y={80} stroke="#1D9E75" strokeDasharray="4 2"/>
             <Line type="monotone" dataKey="pct" stroke="#1D9E75" strokeWidth={2} dot={false} connectNulls/>
           </LineChart>

@@ -1,88 +1,110 @@
 import { useState } from 'react'
+import { format, parseISO } from 'date-fns'
 import Card from '../components/ui/Card'
 import Avatar from '../components/ui/Avatar'
+import Badge from '../components/ui/Badge'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../components/ui/Toast'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, User, Calendar, Clock } from 'lucide-react'
+import { verifyPassword } from '../utils/crypto'
 
 export default function Profile() {
-  const { user, updateUser } = useAuth()
+  const { currentUser, updateUser, changePassword } = useAuth()
   const { addToast } = useToast()
-  const [name, setName] = useState(user?.name || '')
-  const [form, setForm] = useState({ current: '', next: '', confirm: '' })
+  const [displayName, setDisplayName] = useState(currentUser?.displayName || '')
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
   const [showPw, setShowPw] = useState(false)
   const [pwError, setPwError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   function saveName(e) {
     e.preventDefault()
-    if (!name.trim()) return
-    updateUser({ name: name.trim(), avatar: name.trim().split(' ').map(p=>p[0]).join('').toUpperCase().slice(0,2) })
+    if (!displayName.trim()) return
+    updateUser(currentUser.id, { displayName: displayName.trim() })
     addToast('Profile updated')
   }
 
-  function savePassword(e) {
+  async function savePassword(e) {
     e.preventDefault()
     setPwError('')
-    if (btoa(form.current) !== user.password) { setPwError('Current password is incorrect.'); return }
-    if (form.next.length < 8) { setPwError('New password must be at least 8 characters.'); return }
-    if (form.next !== form.confirm) { setPwError('Passwords do not match.'); return }
-    updateUser({ password: btoa(form.next) })
-    setForm({ current: '', next: '', confirm: '' })
-    addToast('Password changed')
+    const valid = await verifyPassword(pwForm.current, currentUser.passwordHash)
+    if (!valid) { setPwError('Current password is incorrect.'); return }
+    if (pwForm.next.length < 8) { setPwError('New password must be at least 8 characters.'); return }
+    if (pwForm.next !== pwForm.confirm) { setPwError('Passwords do not match.'); return }
+    setLoading(true)
+    await changePassword(currentUser.id, pwForm.next)
+    setLoading(false)
+    setPwForm({ current: '', next: '', confirm: '' })
+    addToast('Password changed successfully')
   }
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
-      <h1 className="font-heading font-bold text-2xl text-navy">Profile</h1>
+      <h1 className="font-heading font-bold text-2xl text-white">Profile</h1>
 
       <Card className="p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <Avatar user={user} size="lg" />
+        <div className="flex items-center gap-4 mb-6 pb-5 border-b border-slate-700">
+          <Avatar user={currentUser} size="lg" />
           <div>
-            <p className="font-semibold text-navy">{user?.name}</p>
-            <p className="text-sm text-gray-400">{user?.email}</p>
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${user?.role==='admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-brand-50 text-brand-700'}`}>
-              {user?.role}
-            </span>
+            <p className="font-heading font-semibold text-white text-lg">{currentUser?.displayName}</p>
+            <p className="text-slate-400 text-sm">@{currentUser?.username}</p>
+            <Badge className="mt-1.5" variant={currentUser?.role === 'admin' ? 'admin' : 'user'}>{currentUser?.role}</Badge>
           </div>
         </div>
-        <form onSubmit={saveName} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4 mb-5">
+          {[
+            { icon: <Calendar size={14}/>, label: 'Member since', val: currentUser?.createdAt ? format(parseISO(currentUser.createdAt),'MMM d, yyyy') : '—' },
+            { icon: <Clock size={14}/>, label: 'Last login', val: currentUser?.lastLogin ? format(parseISO(currentUser.lastLogin),'MMM d, HH:mm') : 'This session' },
+          ].map(({ icon, label, val }) => (
+            <div key={label} className="bg-slate-700/40 rounded-xl p-3">
+              <div className="flex items-center gap-1.5 text-slate-500 text-xs mb-1">{icon}{label}</div>
+              <p className="text-sm font-medium text-slate-200">{val}</p>
+            </div>
+          ))}
+        </div>
+        <form onSubmit={saveName} className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label>
-            <input value={name} onChange={e=>setName(e.target.value)} required
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">Display Name</label>
+            <div className="flex gap-2">
+              <input value={displayName} onChange={e => setDisplayName(e.target.value)} required className="input-dark flex-1" />
+              <button type="submit" className="btn-primary px-4 text-sm">Save</button>
+            </div>
           </div>
-          <button type="submit" className="bg-brand-500 hover:bg-brand-700 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm">
-            Save Name
-          </button>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">Username</label>
+            <div className="input-dark bg-slate-700/50 text-slate-500 cursor-not-allowed select-none">
+              @{currentUser?.username}
+            </div>
+          </div>
         </form>
       </Card>
 
       <Card className="p-6">
-        <h3 className="font-semibold text-navy mb-4">Change Password</h3>
+        <h3 className="font-heading font-semibold text-white mb-4">Change Password</h3>
         <form onSubmit={savePassword} className="space-y-4">
           {[
-            { key: 'current', label: 'Current Password' },
-            { key: 'next', label: 'New Password' },
+            { key: 'current', label: 'Current Password', show: true },
+            { key: 'next',    label: 'New Password' },
             { key: 'confirm', label: 'Confirm New Password' },
-          ].map(({ key, label }) => (
+          ].map(({ key, label, show }) => (
             <div key={key}>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">{label}</label>
               <div className="relative">
-                <input type={showPw ? 'text' : 'password'} value={form[key]}
-                  onChange={e=>setForm(p=>({...p,[key]:e.target.value}))} required
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-                {key === 'current' && (
-                  <button type="button" onClick={()=>setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                <input type={showPw ? 'text' : 'password'} value={pwForm[key]}
+                  onChange={e => setPwForm(p=>({...p,[key]:e.target.value}))} required
+                  className="input-dark pr-11" />
+                {show && (
+                  <button type="button" onClick={() => setShowPw(!showPw)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200">
                     {showPw ? <EyeOff size={16}/> : <Eye size={16}/>}
                   </button>
                 )}
               </div>
             </div>
           ))}
-          {pwError && <div className="bg-danger-100 text-danger-500 text-sm px-4 py-3 rounded-xl">{pwError}</div>}
-          <button type="submit" className="bg-brand-500 hover:bg-brand-700 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm">
-            Update Password
+          {pwError && <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-xl">{pwError}</div>}
+          <button type="submit" disabled={loading} className="btn-primary w-full">
+            {loading ? 'Updating…' : 'Update Password'}
           </button>
         </form>
       </Card>

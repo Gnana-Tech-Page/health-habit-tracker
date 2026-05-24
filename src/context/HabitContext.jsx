@@ -7,25 +7,25 @@ import { format } from 'date-fns'
 const HabitContext = createContext(null)
 
 export function HabitProvider({ children }) {
-  const { user } = useAuth()
+  const { currentUser } = useAuth()
   const [entries, setEntries] = useState([])
 
   useEffect(() => {
-    if (user) setEntries(getHabitsForUser(user.id))
+    if (currentUser) setEntries(getHabitsForUser(currentUser.id))
     else setEntries([])
-  }, [user])
+  }, [currentUser])
 
   const saveEntry = useCallback((entry) => {
-    if (!user) return
+    if (!currentUser) return
     const sleepStatus = computeSleepStatus(entry.sleepTime)
-    const full = { ...entry, userId: user.id, ...sleepStatus }
-    upsertHabitEntry(user.id, full)
+    const full = { ...entry, userId: currentUser.id, ...sleepStatus }
+    upsertHabitEntry(currentUser.id, full)
     setEntries(prev => {
       const idx = prev.findIndex(e => e.date === full.date)
       if (idx >= 0) { const next = [...prev]; next[idx] = full; return next }
       return [...prev, full]
     })
-  }, [user])
+  }, [currentUser])
 
   const todayEntry = entries.find(e => e.date === format(new Date(), 'yyyy-MM-dd')) || null
 

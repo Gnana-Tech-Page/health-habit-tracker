@@ -1,7 +1,8 @@
 const KEYS = {
   USERS: 'hht_users',
-  CURRENT_USER: 'hht_current_user',
-  habitsFor: (userId) => `hht_habits_${userId}`,
+  SESSION: 'hht_session',
+  habitsFor: (id) => `hht_habits_${id}`,
+  lockout: (u) => `hht_lockout_${u.toLowerCase()}`,
 }
 
 export function getUsers() {
@@ -12,13 +13,49 @@ export function saveUsers(users) {
   localStorage.setItem(KEYS.USERS, JSON.stringify(users))
 }
 
-export function getCurrentUserId() {
-  return localStorage.getItem(KEYS.CURRENT_USER)
+export function getUserByUsername(username) {
+  return getUsers().find(u => u.username === username.toLowerCase()) || null
 }
 
-export function setCurrentUserId(id) {
-  if (id) localStorage.setItem(KEYS.CURRENT_USER, id)
-  else localStorage.removeItem(KEYS.CURRENT_USER)
+export function getUserById(id) {
+  return getUsers().find(u => u.id === id) || null
+}
+
+export function upsertUser(user) {
+  const users = getUsers()
+  const idx = users.findIndex(u => u.id === user.id)
+  if (idx >= 0) users[idx] = user
+  else users.push(user)
+  saveUsers(users)
+}
+
+export function removeUser(id) {
+  saveUsers(getUsers().filter(u => u.id !== id))
+  localStorage.removeItem(KEYS.habitsFor(id))
+}
+
+export function getSession() {
+  return JSON.parse(localStorage.getItem(KEYS.SESSION) || 'null')
+}
+
+export function saveSession(s) {
+  localStorage.setItem(KEYS.SESSION, JSON.stringify(s))
+}
+
+export function clearSession() {
+  localStorage.removeItem(KEYS.SESSION)
+}
+
+export function getLockout(username) {
+  return JSON.parse(localStorage.getItem(KEYS.lockout(username)) || 'null')
+}
+
+export function saveLockout(username, info) {
+  localStorage.setItem(KEYS.lockout(username), JSON.stringify(info))
+}
+
+export function clearLockout(username) {
+  localStorage.removeItem(KEYS.lockout(username))
 }
 
 export function getHabitsForUser(userId) {
@@ -37,13 +74,8 @@ export function upsertHabitEntry(userId, entry) {
   saveHabitsForUser(userId, habits)
 }
 
-export function getHabitEntryForDate(userId, date) {
-  const habits = getHabitsForUser(userId)
-  return habits.find(h => h.date === date) || null
-}
-
-export function deleteUser(userId) {
-  const users = getUsers().filter(u => u.id !== userId)
-  saveUsers(users)
-  localStorage.removeItem(KEYS.habitsFor(userId))
+// Returns true if stored users are in the old email-based format
+export function isLegacyFormat() {
+  const users = getUsers()
+  return users.length > 0 && 'email' in users[0]
 }
