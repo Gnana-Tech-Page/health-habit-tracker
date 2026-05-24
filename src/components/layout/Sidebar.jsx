@@ -7,13 +7,13 @@ function NavItem({ to, icon, label, onClick }) {
   const base = 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors'
   const active = 'bg-brand-500 text-white'
   const inactive = 'text-gray-500 hover:bg-gray-100 hover:text-navy'
-  if (onClick) return (
+  if (!to) return (
     <button onClick={onClick} className={`${base} ${inactive} w-full`}>
       {icon}<span>{label}</span>
     </button>
   )
   return (
-    <NavLink to={to} className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
+    <NavLink to={to} onClick={onClick} className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
       {icon}<span>{label}</span>
     </NavLink>
   )

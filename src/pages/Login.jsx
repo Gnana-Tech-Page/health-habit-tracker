@@ -77,9 +77,6 @@ export default function Login() {
           </p>
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-4">
-          Demo: <span className="font-mono">admin@habittracker.com</span> / <span className="font-mono">admin123</span>
-        </p>
       </div>
     </div>
   )
