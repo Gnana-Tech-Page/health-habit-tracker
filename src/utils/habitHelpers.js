@@ -7,8 +7,8 @@ export const HABIT_FIELDS = [
   { key: 'pushUps',         label: 'Push Ups',           type: 'number', unit: 'reps', category: 'fitness' },
   { key: 'squats',          label: 'Squats',             type: 'number', unit: 'reps', category: 'fitness' },
   { key: 'plank',           label: 'Plank',              type: 'number', unit: 'sec',  category: 'fitness' },
-  { key: 'eatingNuts',      label: 'Eating Nuts',        type: 'bool', category: 'nutrition' },
-  { key: 'drink3LWater',    label: 'Drink 3L Water',     type: 'bool', category: 'nutrition' },
+  { key: 'eatingNuts',   label: 'Eating Nuts',   type: 'bool',  category: 'nutrition' },
+  { key: 'waterIntake',  label: 'Water Intake',  type: 'water', category: 'nutrition', unit: 'L', target: 3.0 },
   { key: 'writing',         label: 'Writing',            type: 'bool', category: 'mind' },
   { key: 'meditation',      label: 'Meditation',         type: 'bool', category: 'mind' },
   { key: 'read10Pages',     label: 'Read 10 Pages',      type: 'bool', category: 'mind' },
@@ -30,12 +30,14 @@ export function computeSleepStatus(sleepTime) {
 
 export function computeCompletion(entry) {
   if (!entry) return 0
-  const bools = HABIT_FIELDS.filter(f => f.type === 'bool' && f.key !== 'sleepOnTime')
+  const bools   = HABIT_FIELDS.filter(f => f.type === 'bool' && f.key !== 'sleepOnTime')
   const numbers = HABIT_FIELDS.filter(f => f.type === 'number')
+  const waters  = HABIT_FIELDS.filter(f => f.type === 'water')
   let done = 0
-  let total = bools.length + numbers.length + 1 // +1 for wakeUpTime + 1 for sleepOnTime
+  const total = bools.length + numbers.length + waters.length + 1 // +1 for wakeUpTime/sleepOnTime pair
   bools.forEach(f => { if (entry[f.key]) done++ })
   numbers.forEach(f => { if ((entry[f.key] || 0) > 0) done++ })
+  waters.forEach(f => { if ((parseFloat(entry[f.key]) || 0) >= (f.target || 3.0)) done++ })
   if (entry.wakeUpTime) done++
   if (entry.sleepOnTime) done++
   return Math.round((done / total) * 100)

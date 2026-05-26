@@ -11,7 +11,8 @@ function entryVal(entry, key) {
   if (!entry) return ''
   const field = HABIT_FIELDS.find(f => f.key === key)
   if (!field) return entry[key] ?? ''
-  if (field.type === 'bool') return entry[key] ? 'Y' : 'N'
+  if (field.type === 'bool')  return entry[key] ? 'Y' : 'N'
+  if (field.type === 'water') return entry[key] != null ? entry[key] : ''
   return entry[key] ?? 0
 }
 
@@ -99,12 +100,15 @@ export function downloadMonthlyReport(userName, entries, referenceDate = new Dat
     const e = entries.find(x => x.date === dateKeys[i])
     if (e) weekMap[wk].push(e)
   })
-  const wkHeader = ['Week', 'Days Logged', 'Avg Completion %', 'Avg Push Ups', 'Avg Squats', 'Avg Plank']
+  const wkHeader = ['Week', 'Days Logged', 'Avg Completion %', 'Avg Push Ups', 'Avg Squats', 'Avg Plank', 'Avg Water (L/day)', 'Water Target Hit (%)']
   const wkRows = [wkHeader]
   Object.entries(weekMap).forEach(([wk, wkEntries]) => {
     const avgPct = wkEntries.length ? Math.round(wkEntries.reduce((s, e) => s + computeCompletion(e), 0) / wkEntries.length) : 0
     const avg = (key) => wkEntries.length ? Math.round(wkEntries.reduce((s, e) => s + (e[key] || 0), 0) / wkEntries.length) : 0
-    wkRows.push([wk, wkEntries.length, avgPct, avg('pushUps'), avg('squats'), avg('plank')])
+    const waterLogged = wkEntries.filter(e => (parseFloat(e.waterIntake) || 0) > 0)
+    const avgWater = waterLogged.length ? (waterLogged.reduce((s, e) => s + (parseFloat(e.waterIntake) || 0), 0) / waterLogged.length).toFixed(2) : ''
+    const waterHitPct = wkEntries.length ? Math.round(wkEntries.filter(e => (parseFloat(e.waterIntake) || 0) >= 3.0).length / wkEntries.length * 100) + '%' : ''
+    wkRows.push([wk, wkEntries.length, avgPct, avg('pushUps'), avg('squats'), avg('plank'), avgWater, waterHitPct])
   })
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wkRows), 'Weekly Rollup')
 
@@ -123,7 +127,8 @@ export function downloadMonthlyReport(userName, entries, referenceDate = new Dat
   ALL_DISPLAY.forEach(f => {
     const done = logged.filter((_, i) => {
       const e = entries.find(x => x.date === dateKeys[i])
-      if (f.type === 'bool') return e?.[f.key]
+      if (f.type === 'bool')  return e?.[f.key]
+      if (f.type === 'water') return (parseFloat(e?.[f.key]) || 0) >= (f.target || 3.0)
       return (e?.[f.key] || 0) > 0
     }).length
     const total = logged.length

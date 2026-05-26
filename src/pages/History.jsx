@@ -27,11 +27,22 @@ function DayDetail({ entry, date }) {
       </div>
       {fields.map(f => {
         const val = entry[f.key]
-        const display = f.type === 'bool' ? (val ? '✓' : '✗') : `${val||0} ${f.unit||''}`
+        let display, colorCls
+        if (f.type === 'bool') {
+          display  = val ? '✓' : '✗'
+          colorCls = val ? 'text-brand-500' : 'text-red-400'
+        } else if (f.type === 'water') {
+          const liters = parseFloat(val) || 0
+          display  = liters > 0 ? `${liters}L` : '—'
+          colorCls = liters >= (f.target || 3.0) ? 'text-brand-500' : liters >= 1.8 ? 'text-amber-400' : liters > 0 ? 'text-red-400' : 'text-slate-500'
+        } else {
+          display  = `${val||0} ${f.unit||''}`
+          colorCls = 'text-slate-200'
+        }
         return (
           <div key={f.key} className="flex justify-between text-xs py-1 border-b border-slate-700/50">
             <span className="text-slate-400">{f.label}</span>
-            <span className={`font-medium ${f.type==='bool'?(val?'text-brand-500':'text-red-400'):'text-slate-200'}`}>{display}</span>
+            <span className={`font-medium ${colorCls}`}>{display}</span>
           </div>
         )
       })}
@@ -77,7 +88,9 @@ export default function History() {
     return HABIT_FIELDS.filter(f => f.key !== 'sleepOnTime').map(f => {
       const done = f.type === 'bool'
         ? monthEntries.filter(e => e[f.key]).length
-        : monthEntries.filter(e => (e[f.key]||0) > 0).length
+        : f.type === 'water'
+          ? monthEntries.filter(e => (parseFloat(e[f.key]) || 0) >= (f.target || 3.0)).length
+          : monthEntries.filter(e => (e[f.key]||0) > 0).length
       const pct = total ? Math.round((done/total)*100) : 0
       return { ...f, done, missed: total-done, pct }
     })

@@ -5,11 +5,12 @@ import Card from '../ui/Card'
 import HabitToggle from './HabitToggle'
 import NumberStepper from './NumberStepper'
 import SleepInput from './SleepInput'
+import WaterInput from './WaterInput'
 import { useHabits } from '../../context/HabitContext'
 
 const DEFAULT = {
   wakeUpTime: '', drinkLemonWater: false, eatMethi: false, morningWalk: false,
-  pushUps: 0, squats: 0, plank: 0, eatingNuts: false, drink3LWater: false,
+  pushUps: 0, squats: 0, plank: 0, eatingNuts: false, waterIntake: 0,
   writing: false, meditation: false, read10Pages: false, learning: false, sleepTime: '',
 }
 
@@ -95,8 +96,8 @@ export default function HabitEntryForm({ selectedDate }) {
       icon: <Salad size={15} className="text-emerald-400"/>, title: 'Nutrition', key: 'nutrition',
       content: (
         <div className="space-y-1">
-          <HabitToggle label="Eating Nuts"   checked={form.eatingNuts}   onChange={v => update('eatingNuts',   v)} />
-          <HabitToggle label="Drink 3L Water" checked={form.drink3LWater} onChange={v => update('drink3LWater', v)} />
+          <HabitToggle label="Eating Nuts" checked={form.eatingNuts} onChange={v => update('eatingNuts', v)} />
+          <WaterInput value={form.waterIntake} onChange={v => update('waterIntake', v)} />
         </div>
       )
     },
