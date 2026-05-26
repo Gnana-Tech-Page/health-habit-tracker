@@ -68,9 +68,9 @@ export default function HabitEntryForm() {
       content: (
         <div className="space-y-1">
           <HabitToggle label="Morning Walk / Workout" checked={form.morningWalk} onChange={v => update('morningWalk', v)} />
-          <NumberStepper label="Push Ups" value={form.pushUps} onChange={v => update('pushUps', v)} unit="reps" step={5} />
-          <NumberStepper label="Squats" value={form.squats} onChange={v => update('squats', v)} unit="reps" step={5} />
-          <NumberStepper label="Plank" value={form.plank} onChange={v => update('plank', v)} unit="sec" step={10} />
+          <NumberStepper label="Push Ups" value={form.pushUps} onChange={v => update('pushUps', v)} unit="reps" />
+          <NumberStepper label="Squats"   value={form.squats}  onChange={v => update('squats',  v)} unit="reps" />
+          <NumberStepper label="Plank"    value={form.plank}   onChange={v => update('plank',   v)} unit="sec"  />
         </div>
       )
     },
