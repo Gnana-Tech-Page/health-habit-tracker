@@ -5,26 +5,29 @@ import Sidebar from './components/layout/Sidebar'
 import Header from './components/layout/Header'
 import BottomNav from './components/layout/BottomNav'
 import Login from './pages/Login'
-import ChangePassword from './pages/ChangePassword'
 import Dashboard from './pages/Dashboard'
 import History from './pages/History'
 import Profile from './pages/Profile'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import UserDetail from './pages/admin/UserDetail'
 import { HabitProvider } from './context/HabitContext'
+import { Activity } from 'lucide-react'
 
-function Spinner() {
+function Splash() {
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-      <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
+    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4">
+      <div className="w-12 h-12 bg-sky-500/20 border border-sky-500/30 rounded-2xl flex items-center justify-center">
+        <Activity className="text-sky-400" size={24} />
+      </div>
+      <div className="w-7 h-7 border-t-sky-400 border-slate-700 rounded-full animate-spin" style={{borderWidth:'3px',borderTopColor:'#38bdf8'}}/>
     </div>
   )
 }
 
 function RequireAuth({ adminOnly = false }) {
   const { currentUser, loading } = useAuth()
-  if (loading) return <Spinner />
-  if (!currentUser) return <Navigate to="/login" replace />
+  if (loading) return <Splash />
+  if (!currentUser || currentUser._disabled) return <Navigate to="/login" replace />
   if (adminOnly && currentUser.role !== 'admin') return <Navigate to="/dashboard" replace />
   return <Outlet />
 }
@@ -52,14 +55,13 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route element={<RequireAuth />}>
-        <Route path="/change-password" element={<ChangePassword />} />
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/history" element={<History />} />
-          <Route path="/profile" element={<Profile />} />
+          <Route path="/history"   element={<History />} />
+          <Route path="/profile"   element={<Profile />} />
           <Route element={<RequireAuth adminOnly />}>
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/users" element={<AdminDashboard />} />
+            <Route path="/admin"              element={<AdminDashboard />} />
+            <Route path="/admin/users"        element={<AdminDashboard />} />
             <Route path="/admin/user/:userId" element={<UserDetail />} />
           </Route>
         </Route>

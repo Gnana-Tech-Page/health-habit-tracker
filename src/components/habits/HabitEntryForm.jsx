@@ -1,12 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
-import { Sunrise, Dumbbell, Salad, Brain, Moon } from 'lucide-react'
+import { Sunrise, Dumbbell, Salad, Brain, Moon, Check, Loader2, AlertCircle } from 'lucide-react'
 import Card from '../ui/Card'
 import HabitToggle from './HabitToggle'
 import NumberStepper from './NumberStepper'
 import SleepInput from './SleepInput'
 import { useHabits } from '../../context/HabitContext'
-import { useToast } from '../ui/Toast'
 
 const DEFAULT = {
   wakeUpTime: '', drinkLemonWater: false, eatMethi: false, morningWalk: false,
@@ -14,19 +13,35 @@ const DEFAULT = {
   writing: false, meditation: false, read10Pages: false, learning: false, sleepTime: '',
 }
 
+function SaveIndicator({ status }) {
+  if (status === 'saving') return (
+    <span className="flex items-center gap-1 text-xs text-slate-400">
+      <Loader2 size={12} className="animate-spin"/> Saving…
+    </span>
+  )
+  if (status === 'saved') return (
+    <span className="flex items-center gap-1 text-xs text-brand-500">
+      <Check size={12}/> Saved
+    </span>
+  )
+  if (status === 'error') return (
+    <span className="flex items-center gap-1 text-xs text-red-400">
+      <AlertCircle size={12}/> Save failed
+    </span>
+  )
+  return null
+}
+
 export default function HabitEntryForm() {
-  const { todayEntry, saveEntry } = useHabits()
-  const { addToast } = useToast()
+  const { todayEntry, saveEntry, saveStatus } = useHabits()
   const [form, setForm] = useState({ ...DEFAULT, date: format(new Date(), 'yyyy-MM-dd') })
-  const debounceRef = useRef(null)
 
   useEffect(() => { if (todayEntry) setForm({ ...DEFAULT, ...todayEntry }) }, [todayEntry])
 
   function update(field, value) {
     setForm(prev => {
       const next = { ...prev, [field]: value }
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(() => { saveEntry(next); addToast('✓ Saved') }, 500)
+      saveEntry(next)
       return next
     })
   }
@@ -89,7 +104,10 @@ export default function HabitEntryForm() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="font-heading font-semibold text-white text-lg">Today's Habits</h2>
-        <span className="section-label">{format(new Date(), 'EEE, dd MMM yyyy')}</span>
+        <div className="flex items-center gap-3">
+          <SaveIndicator status={saveStatus} />
+          <span className="section-label">{format(new Date(), 'EEE, dd MMM yyyy')}</span>
+        </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {sections.map(s => (

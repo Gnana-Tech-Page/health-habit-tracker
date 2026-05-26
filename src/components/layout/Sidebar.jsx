@@ -18,10 +18,10 @@ function NavItem({ to, icon, label, onClick }) {
 }
 
 export default function Sidebar({ open, onClose }) {
-  const { currentUser, logout } = useAuth()
+  const { currentUser, signOut } = useAuth()
   const navigate = useNavigate()
 
-  function handleLogout() { logout(); navigate('/login') }
+  async function handleLogout() { await signOut(); navigate('/login') }
 
   return (
     <>
@@ -54,7 +54,7 @@ export default function Sidebar({ open, onClose }) {
             <Avatar user={currentUser} size="sm" />
             <div className="min-w-0">
               <p className="text-sm font-medium text-slate-200 truncate">{currentUser?.displayName}</p>
-              <p className="text-xs text-slate-500 truncate">@{currentUser?.username}</p>
+              <p className="text-xs text-slate-500 truncate">{currentUser?.email}</p>
             </div>
           </div>
           <NavItem icon={<LogOut size={17}/>} label="Logout" onClick={handleLogout} />
