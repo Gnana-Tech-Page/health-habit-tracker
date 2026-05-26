@@ -1,13 +1,16 @@
-import { useMemo } from 'react'
-import { format, startOfWeek, addDays } from 'date-fns'
+import { useMemo, useState, useEffect } from 'react'
+import { format, startOfWeek, addDays, subDays, startOfDay, differenceInCalendarDays, parseISO } from 'date-fns'
 import Card from '../components/ui/Card'
 import HabitEntryForm from '../components/habits/HabitEntryForm'
+import DateNavigator from '../components/habits/DateNavigator'
 import CompletionRing from '../components/charts/CompletionRing'
 import WeeklyBarChart from '../components/charts/WeeklyBarChart'
 import SleepChart from '../components/charts/SleepChart'
 import { useHabits } from '../context/HabitContext'
 import { computeCompletion, computeStreak, getWeekEntries, weeklyAvg, sleepOnTimeRate } from '../utils/habitHelpers'
 import { Flame, Trophy, Moon, TrendingUp } from 'lucide-react'
+
+const MAX_PAST_DAYS = 30
 
 function StatCard({ icon, label, value, sub }) {
   return (
@@ -47,18 +50,76 @@ function WeekStrip({ entries }) {
 
 export default function Dashboard() {
   const { entries } = useHabits()
-  const weekEntries = useMemo(() => getWeekEntries(entries), [entries])
-  const validWeek = weekEntries.filter(Boolean)
-  const weekAvgPct = validWeek.length ? Math.round(validWeek.reduce((s, e) => s + computeCompletion(e), 0) / validWeek.length) : 0
+
+  // Date navigation state
+  const today = startOfDay(new Date())
+  const [selectedDate, setSelectedDate] = useState(today)
+
+  const diff         = differenceInCalendarDays(today, selectedDate)
+  const isOnToday    = diff === 0
+  const canGoBack    = diff < MAX_PAST_DAYS
+  const canGoForward = !isOnToday
+
+  function goBack()    { if (canGoBack)    setSelectedDate(d => subDays(d, 1)) }
+  function goForward() { if (canGoForward) setSelectedDate(d => addDays(d, 1)) }
+  function jumpTo(dateStr) {
+    const picked  = startOfDay(parseISO(dateStr))
+    const daysAgo = differenceInCalendarDays(today, picked)
+    if (daysAgo >= 0 && daysAgo <= MAX_PAST_DAYS) setSelectedDate(picked)
+  }
+
+  // Keyboard ← → navigation (skip when an input is focused)
+  useEffect(() => {
+    function handler(e) {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      if (e.key === 'ArrowLeft'  && canGoBack)    setSelectedDate(d => subDays(d, 1))
+      if (e.key === 'ArrowRight' && canGoForward) setSelectedDate(d => addDays(d, 1))
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [canGoBack, canGoForward])
+
+  // Weekly stats (always computed from current week regardless of selected date)
+  const weekEntries  = useMemo(() => getWeekEntries(entries), [entries])
+  const validWeek    = weekEntries.filter(Boolean)
+  const weekAvgPct   = validWeek.length ? Math.round(validWeek.reduce((s, e) => s + computeCompletion(e), 0) / validWeek.length) : 0
   const { current: currentStreak, best: bestStreak } = useMemo(() => computeStreak(entries), [entries])
-  const sleepRate = useMemo(() => sleepOnTimeRate(entries), [entries])
-  const avgPushUps = weeklyAvg(validWeek, 'pushUps')
-  const avgSquats = weeklyAvg(validWeek, 'squats')
-  const avgPlank = weeklyAvg(validWeek, 'plank')
+  const sleepRate    = useMemo(() => sleepOnTimeRate(entries), [entries])
+  const avgPushUps   = weeklyAvg(validWeek, 'pushUps')
+  const avgSquats    = weeklyAvg(validWeek, 'squats')
+  const avgPlank     = weeklyAvg(validWeek, 'plank')
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
-      <HabitEntryForm />
+      {/* Habit entry section */}
+      <div className="space-y-3">
+        <DateNavigator
+          selectedDate={selectedDate}
+          canGoBack={canGoBack}
+          canGoForward={canGoForward}
+          onBack={goBack}
+          onForward={goForward}
+          onJump={jumpTo}
+        />
+
+        {/* Past-date editing banner */}
+        {!isOnToday && (
+          <div className="flex items-center gap-2 text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-xl px-4 py-2 text-sm">
+            <span>✏️</span>
+            <span>
+              Editing past entry — <strong>{format(selectedDate, 'd MMM')}</strong>. Changes save immediately.
+            </span>
+            <button onClick={() => setSelectedDate(today)}
+              className="ml-auto text-xs underline hover:text-amber-300 transition-colors whitespace-nowrap">
+              Go to today →
+            </button>
+          </div>
+        )}
+
+        <HabitEntryForm selectedDate={selectedDate} />
+      </div>
+
+      {/* Weekly stats (always shows current week) */}
       <div>
         <h2 className="font-heading font-semibold text-white text-lg mb-4">This Week</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -69,16 +130,17 @@ export default function Dashboard() {
               <p className="section-label">Avg Completion</p>
             </div>
           </Card>
-          <StatCard icon={<Flame size={24}/>} label="Current Streak" value={`${currentStreak}d`} sub="≥80% days" />
-          <StatCard icon={<Trophy size={24}/>} label="Best Streak" value={`${bestStreak}d`} />
-          <StatCard icon={<Moon size={24}/>} label="Sleep On Time" value={`${sleepRate}%`} sub="of logged nights" />
+          <StatCard icon={<Flame size={24}/>}    label="Current Streak" value={`${currentStreak}d`} sub="≥80% days" />
+          <StatCard icon={<Trophy size={24}/>}   label="Best Streak"    value={`${bestStreak}d`} />
+          <StatCard icon={<Moon size={24}/>}     label="Sleep On Time"  value={`${sleepRate}%`}   sub="of logged nights" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-          <StatCard icon={<TrendingUp size={24}/>} label="Avg Push Ups" value={avgPushUps} sub="this week" />
-          <StatCard icon={<TrendingUp size={24}/>} label="Avg Squats" value={avgSquats} sub="this week" />
-          <StatCard icon={<TrendingUp size={24}/>} label="Avg Plank" value={`${avgPlank}s`} sub="this week" />
+          <StatCard icon={<TrendingUp size={24}/>} label="Avg Push Ups" value={avgPushUps}      sub="this week" />
+          <StatCard icon={<TrendingUp size={24}/>} label="Avg Squats"   value={avgSquats}       sub="this week" />
+          <StatCard icon={<TrendingUp size={24}/>} label="Avg Plank"    value={`${avgPlank}s`}  sub="this week" />
         </div>
       </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="p-5">
           <p className="section-label mb-3">Weekly Heatmap</p>

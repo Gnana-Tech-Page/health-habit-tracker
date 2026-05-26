@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { format } from 'date-fns'
+import { format, startOfDay, isToday } from 'date-fns'
 import { Sunrise, Dumbbell, Salad, Brain, Moon, Check, Loader2, AlertCircle } from 'lucide-react'
 import Card from '../ui/Card'
 import HabitToggle from './HabitToggle'
@@ -32,21 +32,38 @@ function SaveIndicator({ status }) {
   return null
 }
 
-export default function HabitEntryForm() {
-  const { todayEntry, saveEntry, saveStatus } = useHabits()
-  const [form, setForm] = useState({ ...DEFAULT, date: format(new Date(), 'yyyy-MM-dd') })
+export default function HabitEntryForm({ selectedDate }) {
+  // Fall back to today if no date provided
+  const date       = selectedDate ?? startOfDay(new Date())
+  const dateKey    = format(date, 'yyyy-MM-dd')
+  const isTodayVal = isToday(date)
 
-  useEffect(() => { if (todayEntry) setForm({ ...DEFAULT, ...todayEntry }) }, [todayEntry])
+  const { todayEntry, entries, saveEntry, saveStatus } = useHabits()
+  const [form, setForm] = useState({ ...DEFAULT, date: dateKey })
+
+  // Load the correct entry whenever the selected date or entries change
+  useEffect(() => {
+    const entry = isTodayVal
+      ? todayEntry
+      : entries.find(e => e.date === dateKey) ?? null
+    setForm(entry ? { ...DEFAULT, ...entry, date: dateKey } : { ...DEFAULT, date: dateKey })
+  }, [dateKey, isTodayVal, todayEntry, entries])
 
   function update(field, value) {
     setForm(prev => {
-      const next = { ...prev, [field]: value }
+      const next = { ...prev, [field]: value, date: dateKey }
       saveEntry(next)
       return next
     })
   }
 
-  const cardBorder = { morning: 'border-t-amber-500', fitness: 'border-t-brand-500', nutrition: 'border-t-emerald-500', mind: 'border-t-violet-500', evening: 'border-t-indigo-500' }
+  const cardBorder = {
+    morning:   'border-t-amber-500',
+    fitness:   'border-t-brand-500',
+    nutrition: 'border-t-emerald-500',
+    mind:      'border-t-violet-500',
+    evening:   'border-t-indigo-500',
+  }
 
   const sections = [
     {
@@ -59,7 +76,7 @@ export default function HabitEntryForm() {
               className="bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 [color-scheme:dark]" />
           </div>
           <HabitToggle label="Drink Lemon Water" checked={form.drinkLemonWater} onChange={v => update('drinkLemonWater', v)} />
-          <HabitToggle label="Eat Methi" checked={form.eatMethi} onChange={v => update('eatMethi', v)} />
+          <HabitToggle label="Eat Methi"         checked={form.eatMethi}        onChange={v => update('eatMethi',        v)} />
         </div>
       )
     },
@@ -78,7 +95,7 @@ export default function HabitEntryForm() {
       icon: <Salad size={15} className="text-emerald-400"/>, title: 'Nutrition', key: 'nutrition',
       content: (
         <div className="space-y-1">
-          <HabitToggle label="Eating Nuts" checked={form.eatingNuts} onChange={v => update('eatingNuts', v)} />
+          <HabitToggle label="Eating Nuts"   checked={form.eatingNuts}   onChange={v => update('eatingNuts',   v)} />
           <HabitToggle label="Drink 3L Water" checked={form.drink3LWater} onChange={v => update('drink3LWater', v)} />
         </div>
       )
@@ -87,10 +104,10 @@ export default function HabitEntryForm() {
       icon: <Brain size={15} className="text-violet-400"/>, title: 'Mind', key: 'mind',
       content: (
         <div className="space-y-1">
-          <HabitToggle label="Writing" checked={form.writing} onChange={v => update('writing', v)} />
-          <HabitToggle label="Meditation" checked={form.meditation} onChange={v => update('meditation', v)} />
+          <HabitToggle label="Writing"      checked={form.writing}    onChange={v => update('writing',    v)} />
+          <HabitToggle label="Meditation"   checked={form.meditation} onChange={v => update('meditation', v)} />
           <HabitToggle label="Read 10 Pages" checked={form.read10Pages} onChange={v => update('read10Pages', v)} />
-          <HabitToggle label="Learning" checked={form.learning} onChange={v => update('learning', v)} />
+          <HabitToggle label="Learning"     checked={form.learning}   onChange={v => update('learning',   v)} />
         </div>
       )
     },
@@ -103,12 +120,12 @@ export default function HabitEntryForm() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="font-heading font-semibold text-white text-lg">Today's Habits</h2>
-        <div className="flex items-center gap-3">
-          <SaveIndicator status={saveStatus} />
-          <span className="section-label">{format(new Date(), 'EEE, dd MMM yyyy')}</span>
-        </div>
+        <h2 className="font-heading font-semibold text-white text-lg">
+          {isTodayVal ? "Today's Habits" : 'Habit Log'}
+        </h2>
+        <SaveIndicator status={saveStatus} />
       </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {sections.map(s => (
           <Card key={s.title} className={`p-5 border-t-4 ${cardBorder[s.key]}`}>
